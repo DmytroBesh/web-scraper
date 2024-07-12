@@ -52,6 +52,7 @@ async def fetch(session: aiohttp.ClientSession, url: str, retries: int, timeout:
         return None, None, None
 
 async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock], timeout: int, num_threads: int, max_retries: int, max_redirects: int):
+    print(f"Processing domain: {domain}")
     protocols = ["https://", "http://", "http://www.", "https://www."]
     final_response = None
     ip_address = await get_ip_address(domain)
