@@ -16,7 +16,7 @@ if platform.system() == 'Windows':
 
 # Параметри
 TIMEOUT = 10
-NUM_THREADS = 100
+NUM_THREADS = 20
 MAX_RETRIES = 0
 MAX_REDIRECTS = 1
 LOG_LEVEL = "info"
@@ -115,32 +115,16 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
             }], "result_non_200.csv", ["Domain"], result_file_locks["result_non_200.csv"])
             return
 
-        try:
-            if not response_text.strip():
-                raise ValueError("Empty response document")
-            tree = html.fromstring(response_text)
-        except (ValueError, html.etree.ParserError) as e:
-            #print(f"Error parsing HTML for {domain}: {e}")
-            await save_results_buffered([{
-                "Domain": domain,
-                "Final Response": final_response,
-                "IP Address": ip_address,
-                "Custom Search Keys": None,
-                "lang": None,
-                "hreflang": None,
-            }], "result_non_200.csv", ["Domain"], result_file_locks["result_non_200.csv"])
-            return
+        cleaned_html = response_text.decode('utf-8', errors='ignore').lower()
 
-        for element in tree.xpath('//script'):
-            element.getparent().remove(element)
-        cleaned_html = html.tostring(tree, encoding='unicode')
-
-        search_key_phrases = ["woocommerce", "/cart", "/shop"]
+        search_key_phrases = ["woocommerce", "/cart", "/product", "/shop",  "/checkout", "product", "add-to-cart", "checkout", "cart", "shop", "store"]
 
         for phrase in search_key_phrases:
-            if phrase in cleaned_html:
-                custom_search_keys[phrase] = custom_search_keys.get(phrase, 0) + 1
+            count = cleaned_html.count(phrase)
+            if count > 0:
+                custom_search_keys[phrase] = count
 
+        tree = html.fromstring(response_text)
         html_tag = tree.xpath('//html')
         if html_tag:
             lang = html_tag[0].get('lang')
