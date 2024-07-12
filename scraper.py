@@ -23,7 +23,7 @@ DEFAULT_MAX_REDIRECTS = 3
 DEFAULT_CHUNK_SIZE = 7000
 
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, як Gecko) Chrome/58.0.3029.110 Safari/537.3',
     'Referer': 'http://www.google.com'
 }
 
@@ -83,9 +83,9 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
                     break
                 elif status in [301, 302, 303, 307, 308]:
                     redirect_url = headers.get('Location')
-                    if redirect_url і не починається з "http":
+                    if redirect_url and not redirect_url.startswith("http"):
                         redirect_url = urljoin(url, redirect_url)
-                    if redirect_url і є тим же доменом:
+                    if redirect_url and is_same_domain(redirect_url, base_url):
                         url = redirect_url
                         redirect_count += 1
                     else:
@@ -97,7 +97,7 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
             if final_response == 200:
                 break
 
-        if final_response != 200 або не отримали відповідь:
+        if final_response != 200 or not response_text:
             await save_results_buffered([{
                 "Domain": domain,
                 "Final Response": final_response,
@@ -109,10 +109,10 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
             return
 
         try:
-            if не response_text.strip():
+            if not response_text.strip():
                 raise ValueError("Empty response document")
             tree = html.fromstring(response_text)
-        except (ValueError, html.etree.ParserError) як e:
+        except (ValueError, html.etree.ParserError) as e:
             await save_results_buffered([{
                 "Domain": domain,
                 "Final Response": final_response,
@@ -130,7 +130,7 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
         custom_key_phrases = ["liqpay", "wayforpay", "monobank"]
 
         for phrase in custom_key_phrases:
-            if phrase в cleaned_html:
+            if phrase in cleaned_html:
                 search_custom_words[phrase] = search_custom_words.get(phrase, 0) + 1
 
         html_tag = tree.xpath('//html')
@@ -177,12 +177,12 @@ async def save_results_buffered(results_buffer: List[dict], filename: str, field
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             if not file_exists:
                 await f.write(f"{','.join(fieldnames)}\n")
-            for result в results_buffer:
+            for result in results_buffer:
                 await f.write(f"{','.join([str(result[field]) for field in fieldnames])}\n")
 
 async def process_chunk(domains_chunk: List[str], timeout: int, num_threads: int, max_retries: int, max_redirects: int):
     queue = Queue()
-    for domain в domains_chunk:
+    for domain in domains_chunk:
         await queue.put(domain)
 
     result_file_locks = {
@@ -193,13 +193,13 @@ async def process_chunk(domains_chunk: List[str], timeout: int, num_threads: int
 
     tasks = []
 
-    for _ в range(num_threads):
+    for _ in range(num_threads):
         task = asyncio.create_task(worker(queue, result_file_locks, timeout, num_threads, max_retries, max_redirects))
         tasks.append(task)
 
     await queue.join()
 
-    for task в tasks:
+    for task in tasks:
         task.cancel()
         try:
             await task
@@ -215,9 +215,9 @@ async def main():
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE, help="Number of domains to process in a single chunk")
     args = parser.parse_args()
 
-    async with aiofiles.open("all-woocommerce-domains.csv", 'r', encoding='utf-8') як f:
+    async with aiofiles.open("all-woocommerce-domains.csv", 'r', encoding='utf-8') as f:
         domains_chunk = []
-        async for line в f:
+        async for line in f:
             domain = line.strip()
             domains_chunk.append(domain)
             if len(domains_chunk) >= args.chunk_size:
