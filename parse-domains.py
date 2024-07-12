@@ -17,8 +17,8 @@ if platform.system() == 'Windows':
 # Параметри
 TIMEOUT = 10
 NUM_THREADS = 100
-MAX_RETRIES = 1
-MAX_REDIRECTS = 3
+MAX_RETRIES = 0
+MAX_REDIRECTS = 1
 LOG_LEVEL = "info"
 CHUNK_SIZE = 7000  # Зменшити розмір порції для обробки
 
@@ -59,22 +59,22 @@ async def fetch(session: aiohttp.ClientSession, url: str, retries: int) -> tuple
 
 async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]):
     #print(f"Processing domain: {domain}")
-    protocols = ["https://", "http://", "http://www.", "https://www."]
+    protocols = ["https://www.", "https://", "http://", "http://www."]
     final_response = None
     ip_address = await get_ip_address(domain)
     if ip_address is None:
-        #print(f"{domain} немає IP")
+        print(f"{domain} немає IP")
         await save_results_buffered([{
             "Domain": domain,
             "Final Response": None,
             "IP Address": None,
-            "Search Custom Words": None,
+            "Custom Search Keys": None,
             "lang": None,
             "hreflang": None,
         }], "result_non_IP.csv", ["Domain"], result_file_locks["result_non_IP.csv"])
         return
 
-    search_custom_words = {"woocommerce","/cart", "/cart-page", "/product", "/shop","product", "add-to-cart", "checkout", "cart", "shop", "store"}
+    custom_search_keys = {}
     lang = None
     hreflangs = []
 
@@ -109,7 +109,7 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
                 "Domain": domain,
                 "Final Response": final_response,
                 "IP Address": ip_address,
-                "Search Custom Words": None,
+                "Custom Search Keys": None,
                 "lang": None,
                 "hreflang": None,
             }], "result_non_200.csv", ["Domain"], result_file_locks["result_non_200.csv"])
@@ -125,7 +125,7 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
                 "Domain": domain,
                 "Final Response": final_response,
                 "IP Address": ip_address,
-                "Search Custom Words": None,
+                "Custom Search Keys": None,
                 "lang": None,
                 "hreflang": None,
             }], "result_non_200.csv", ["Domain"], result_file_locks["result_non_200.csv"])
@@ -135,11 +135,11 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
             element.getparent().remove(element)
         cleaned_html = html.tostring(tree, encoding='unicode')
 
-        custom_key_phrases = ["liqpay", "wayforpay", "monobank"]
+        search_key_phrases = ["woocommerce", "/cart", "/shop"]
 
-        for phrase in custom_key_phrases:
+        for phrase in search_key_phrases:
             if phrase in cleaned_html:
-                search_custom_words[phrase] = search_custom_words.get(phrase, 0) + 1
+                custom_search_keys[phrase] = custom_search_keys.get(phrase, 0) + 1
 
         html_tag = tree.xpath('//html')
         if html_tag:
@@ -152,7 +152,7 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
         "Domain": domain,
         "Final Response": final_response,
         "IP Address": ip_address,
-        "Search Custom Words": "||".join([f"{k}:{v}" for k, v in search_custom_words.items()]),
+        "Custom Search Keys": "||".join([f"{k}:{v}" for k, v in custom_search_keys.items()]),
         "lang": lang,
         "hreflang": "||".join(hreflangs),
     }
@@ -160,7 +160,7 @@ async def process_domain(domain: str, result_file_locks: Dict[str, asyncio.Lock]
     await save_results_buffered([result], "result_200.csv", list(result.keys()), result_file_locks["result_200.csv"])
 
     if final_response == 200:
-        print(f"домен {domain} отримав кінцеву відповідь {final_response}, IP: {ip_address}, Search Custom Words: {search_custom_words}, lang: {lang}, hreflangs: {hreflangs}")
+        print(f"домен {domain} отримав кінцеву відповідь {final_response}, IP: {ip_address}, Custom Search Keys: {custom_search_keys}, lang: {lang}, hreflangs: {hreflangs}")
 
 async def worker(queue: Queue, result_file_locks: Dict[str, asyncio.Lock]):
     try:
